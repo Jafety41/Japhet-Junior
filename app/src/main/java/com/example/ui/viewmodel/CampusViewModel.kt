@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 
 class CampusViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -17,6 +18,44 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
     // --- State variables ---
     private val _currentUser = MutableStateFlow<UserEntity?>(null)
     val currentUser: StateFlow<UserEntity?> = _currentUser.asStateFlow()
+
+    // --- Persisted Academic Affiliation settings ---
+    private val _userProgram = MutableStateFlow(sharedPrefs.getString("user_program", "UD089") ?: "UD089")
+    val userProgram: StateFlow<String> = _userProgram.asStateFlow()
+
+    private val _userYear = MutableStateFlow(sharedPrefs.getString("user_year", "Year 3") ?: "Year 3")
+    val userYear: StateFlow<String> = _userYear.asStateFlow()
+
+    fun updateProfileSettings(program: String, year: String) {
+        _userProgram.value = program
+        _userYear.value = year
+        sharedPrefs.edit()
+            .putString("user_program", program)
+            .putString("user_year", year)
+            .apply()
+    }
+
+    // --- Direct course filtering state ---
+    private val _activeCourseFilter = MutableStateFlow<String?>(null)
+    val activeCourseFilter: StateFlow<String?> = _activeCourseFilter.asStateFlow()
+
+    fun setActiveCourseFilter(courseCode: String?) {
+        _activeCourseFilter.value = courseCode
+    }
+
+    // --- Tab Navigation request bus ---
+    private val _tabNavigationRequest = MutableSharedFlow<com.example.ui.screens.AppTab>()
+    val tabNavigationRequest = _tabNavigationRequest.asSharedFlow()
+
+    fun requestTabNavigation(tab: com.example.ui.screens.AppTab) {
+        viewModelScope.launch {
+            _tabNavigationRequest.emit(tab)
+        }
+    }
+
+    // --- Jay Assistant typing state ---
+    private val _isJayTyping = MutableStateFlow(false)
+    val isJayTyping: StateFlow<Boolean> = _isJayTyping.asStateFlow()
 
     private val _onboardingStep = MutableStateFlow(0)
     val onboardingStep: StateFlow<Int> = _onboardingStep.asStateFlow()
@@ -77,7 +116,21 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
     val activeChatRoomId: StateFlow<Int?> = _activeChatRoomId.asStateFlow()
 
     // --- Timetable filters ---
-    private val _selectedTimetableDay = MutableStateFlow("Monday")
+    private val _selectedTimetableDay = MutableStateFlow(
+        run {
+            val calendar = java.util.Calendar.getInstance()
+            when (calendar.get(java.util.Calendar.DAY_OF_WEEK)) {
+                java.util.Calendar.MONDAY -> "Monday"
+                java.util.Calendar.TUESDAY -> "Tuesday"
+                java.util.Calendar.WEDNESDAY -> "Wednesday"
+                java.util.Calendar.THURSDAY -> "Thursday"
+                java.util.Calendar.FRIDAY -> "Friday"
+                java.util.Calendar.SATURDAY -> "Saturday"
+                java.util.Calendar.SUNDAY -> "Sunday"
+                else -> "Monday"
+            }
+        }
+    )
     val selectedTimetableDay: StateFlow<String> = _selectedTimetableDay.asStateFlow()
 
     // --- Search marketplace ---
@@ -88,9 +141,23 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
     val selectedMarketplaceCategory: StateFlow<String> = _selectedMarketplaceCategory.asStateFlow()
 
     // --- Flows from db ---
-    val routines: StateFlow<List<RoutineEntity>> = _selectedTimetableDay
-        .flatMapLatest { day -> repository.getRoutinesByDay(day) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val routines: StateFlow<List<RoutineEntity>> = combine(
+        _selectedTimetableDay,
+        _userProgram,
+        _userYear,
+        repository.getAllRoutines()
+    ) { day, program, yearStr, allList ->
+        val yearInt = try {
+            yearStr.replace("Year ", "").trim().toInt()
+        } catch (e: Exception) {
+            3
+        }
+        allList.filter { 
+            it.dayOfWeek.equals(day, ignoreCase = true) &&
+            (it.program == program || program == "ALL") &&
+            (it.year == yearInt || yearStr == "ALL")
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allRoutines: StateFlow<List<RoutineEntity>> = repository.getAllRoutines()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -614,6 +681,12 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun updateClassLocation(routineId: Int, newLocation: String) {
+        viewModelScope.launch {
+            repository.updateRoutineLocation(routineId, newLocation)
+        }
+    }
+
     // --- Marketplace Listings ---
     fun setSearchQuery(query: String) {
         _marketplaceSearch.value = query
@@ -629,7 +702,8 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
         price: Double,
         category: String,
         condition: String,
-        imageSeed: String
+        imageSeed: String,
+        imageUrls: String = ""
     ) {
         val user = _currentUser.value ?: return
         viewModelScope.launch {
@@ -643,7 +717,8 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
                 category = category,
                 status = "available",
                 condition = condition,
-                imageSeed = imageSeed
+                imageSeed = imageSeed,
+                imageUrls = imageUrls
             )
             repository.insertListing(newListing)
             
@@ -773,9 +848,9 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
             val chatRoomsList = repository.getAllChatRooms().first()
             val matchedRoom = chatRoomsList.find { it.id == roomId }
             if (matchedRoom != null) {
-                // If chatting with JAPHET Mathias (MODERATOR), simulate a prompt response immediately!
+                // If chatting with "Ask Me (Jay)", simulate a prompt-based or Gemini-based response immediately!
                 if (matchedRoom.participantId == "japhet_moderator") {
-                    simulateModeratorResponse(roomId, text)
+                    queryJayAssistant(roomId, text)
                 } else {
                     // Simulate general response after a short delay
                     simulateGeneralResponse(roomId, matchedRoom.participantName, text)
@@ -784,26 +859,133 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun simulateModeratorResponse(roomId: Int, userText: String) {
+    private fun queryJayAssistant(roomId: Int, userText: String) {
+        _isJayTyping.value = true
         viewModelScope.launch {
-            kotlinx.coroutines.delay(1200) // nice dynamic latency
-            val randomReplies = listOf(
-                "Mambo vipi raw! Keep pushing standard files to Maktaba and listings up in Campus. If you see spam, report it immediately! 🛡️",
-                "I review build issues. That looks neat, keep checking routines and assignments. Uni is chaotic but we win! 🚀",
-                "Yes @username! Setting reminders triggers actual native local alarms. Let's make sure you never miss that OOP lecture.",
-                "Safi kabisa! Marketplace is completely free to list books, chairs, calculators. Good luck with the trade!",
-                "Great question. Let's do some study session review in CS-204 this evening. See you in Laboratory room 3!",
-                "Got your back, fam! Ask me anything regarding courses or materials. Let's get it. 🔥",
-                "Oya, mambo safi! Thanks for sharing study notes. Let me review that pointer PDF right away."
-            )
-            val replyText = randomReplies.random().replace("@username", _currentUser.value?.username ?: "@student")
-            val autoReplyMsg = MessageEntity(
-                chatRoomId = roomId,
-                senderId = "japhet_moderator",
-                text = replyText
-            )
-            repository.insertMessage(autoReplyMsg)
-            repository.updateChatRoomLastMessage(roomId, replyText, System.currentTimeMillis())
+            try {
+                val apiKey = com.example.BuildConfig.GEMINI_API_KEY
+                
+                val currentProg = userProgram.value
+                val currentYr = userYear.value
+                val userName = _currentUser.value?.displayName ?: "Student"
+
+                val systemInstruction = """
+                    You are 'Jay', a hyper-intelligent, proactive campus assistant. Your persona is brief, warm, and highly personalized.
+                    Knowledge Base: You have full access to the user's timetable and marketplace activity.
+                    The current user's name is $userName, they are registered in program $currentProg and academic year $currentYr.
+                    Interaction Rules:
+                    Proactive Assistance: Speak to the user using their details. Answer in 1-2 short sentences. Use a style similar to Meta AI on WhatsApp.
+                    Deep Linking: ALWAYS include exactly one of the following clickable action tags in brackets at the end of your message if relevant to the request:
+                    - [View Timetable] (if referencing classes, timings, schedules, or calendars)
+                    - [Open Library] (if referencing study materials, slides, books, past exams, or notes)
+                    - [Check Market] (if referencing selling, buying, products, or goods)
+                    Tone: You are not a 'moderator'; you are a personal assistant. You know the user's program ($currentProg) and year level ($currentYr). Treat every conversation as a continuation of their academic journey. Keep replies strictly under 3 sentences.
+                """.trimIndent().replace("\n", "\\n").replace("\"", "\\\"")
+
+                if (apiKey.isBlank() || apiKey == "YOUR_GEMINI_API_KEY") {
+                    kotlinx.coroutines.delay(1200)
+                    val replyText = generateSimulatedJayResponse(userText, userName, currentProg, currentYr)
+                    val autoReplyMsg = MessageEntity(
+                        chatRoomId = roomId,
+                        senderId = "japhet_moderator",
+                        text = replyText
+                    )
+                    repository.insertMessage(autoReplyMsg)
+                    repository.updateChatRoomLastMessage(roomId, replyText, System.currentTimeMillis())
+                    _isJayTyping.value = false
+                    return@launch
+                }
+
+                val jsonBodyText = """
+                    {
+                      "contents": [
+                        {
+                          "parts": [
+                            {"text": "$userText"}
+                          ]
+                        }
+                      ],
+                      "systemInstruction": {
+                        "parts": [
+                          {"text": "$systemInstruction"}
+                        ]
+                      },
+                      "generationConfig": {
+                        "temperature": 0.5,
+                        "maxOutputTokens": 120
+                      }
+                    }
+                """.trimIndent()
+
+                val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
+                val requestBody = okhttp3.RequestBody.Companion.create(mediaType, jsonBodyText)
+
+                val request = okhttp3.Request.Builder()
+                    .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey")
+                    .post(requestBody)
+                    .build()
+
+                val client = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val resBody = response.body?.string() ?: ""
+                            val parsedText = extractTextFromGeminiResponse(resBody)
+                            val autoReplyMsg = MessageEntity(
+                                chatRoomId = roomId,
+                                senderId = "japhet_moderator",
+                                text = parsedText
+                            )
+                            repository.insertMessage(autoReplyMsg)
+                            repository.updateChatRoomLastMessage(roomId, parsedText, System.currentTimeMillis())
+                        } else {
+                            val replyText = generateSimulatedJayResponse(userText, userName, currentProg, currentYr)
+                            val autoReplyMsg = MessageEntity(
+                                chatRoomId = roomId,
+                                senderId = "japhet_moderator",
+                                text = replyText
+                            )
+                            repository.insertMessage(autoReplyMsg)
+                            repository.updateChatRoomLastMessage(roomId, replyText, System.currentTimeMillis())
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CampusViewModel", "Gemini chat failed, fallback used", e)
+                val replyText = "Hey! Let me double-check that with the campus server. Check back in a moment or try navigating. [View Timetable]"
+                val autoReplyMsg = MessageEntity(
+                    chatRoomId = roomId,
+                    senderId = "japhet_moderator",
+                    text = replyText
+                )
+                repository.insertMessage(autoReplyMsg)
+                repository.updateChatRoomLastMessage(roomId, replyText, System.currentTimeMillis())
+            } finally {
+                _isJayTyping.value = false
+            }
+        }
+    }
+
+    private fun generateSimulatedJayResponse(userText: String, userName: String, program: String, year: String): String {
+        val q = userText.lowercase()
+        val firstName = userName.split(" ").firstOrNull() ?: "there"
+        return when {
+            q.contains("schedule") || q.contains("timetable") || q.contains("class") || q.contains("routine") || q.contains("saa") || q.contains("kipindi") || q.contains("ratiba") -> {
+                "Hey $firstName! Ready to crush your $year $program schedule today? I see you have Tutorial MT360 later. Need help prep or checking room? [View Timetable]"
+            }
+            q.contains("library") || q.contains("book") || q.contains("notes") || q.contains("material") || q.contains("pdf") || q.contains("study") || q.contains("soma") || q.contains("kitabu") || q.contains("desa") -> {
+                "Absolutely! We have complete courses and past notes updated for $program in the library. Go ahead and grab the study files! [Open Library]"
+            }
+            q.contains("market") || q.contains("soko") || q.contains("buy") || q.contains("sell") || q.contains("calculator") || q.contains("phone") || q.contains("price") -> {
+                "Awesome! Check out our Campus Marketplace. You can find essential books, laptops, or even place your own listing in a few taps. [Check Market]"
+            }
+            else -> {
+                "Hey $firstName! Ready to crush your $year $program schedule? Let me know how I can help you coordinate classes or study guides today! [View Timetable]"
+            }
         }
     }
 
@@ -831,5 +1013,143 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
+    }
+
+    // --- AI SCHEDULER (RATIBA YANGU) INTELLIGENCE LAYER ---
+    private val _aiSchedulerResponse = MutableStateFlow<String?>(null)
+    val aiSchedulerResponse: StateFlow<String?> = _aiSchedulerResponse.asStateFlow()
+
+    private val _isAiSchedulerLoading = MutableStateFlow(false)
+    val isAiSchedulerLoading: StateFlow<Boolean> = _isAiSchedulerLoading.asStateFlow()
+
+    fun queryAiScheduler(program: String, year: String) {
+        _isAiSchedulerLoading.value = true
+        _aiSchedulerResponse.value = null
+        viewModelScope.launch {
+            try {
+                val promptText = if (program.uppercase() != "UD089" || year == "Year 4" || year == "ALL") {
+                    "The user selected '$program' for '$year'. We do not have this data yet. Respond with a polite 'Coming Soon' message in Kiswahili/English style."
+                } else {
+                    "The user selected program '$program' and year '$year'. Provide a polite academic summary or details of matching course routines from UD089."
+                }
+
+                val apiKey = com.example.BuildConfig.GEMINI_API_KEY
+                if (apiKey.isBlank() || apiKey == "YOUR_GEMINI_API_KEY") {
+                    kotlinx.coroutines.delay(1000)
+                    if (program.uppercase() != "UD089" || year == "Year 4" || year == "ALL") {
+                        _aiSchedulerResponse.value = "{\"status\": \"coming_soon\", \"message\": \"Ratiba ya $program ($year) haijafikiwa katika hifadhi yetu ya sasa. Coming soon!\"}"
+                    } else {
+                        _aiSchedulerResponse.value = "Kipindi chako cha UD089 ($year) kimeandaliwa vyema kwenye orodha!"
+                    }
+                    _isAiSchedulerLoading.value = false
+                    return@launch
+                }
+
+                val systemInstruction = """
+                    You are the Intelligence Engine for the 'Ratiba Yangu' application. Your source of truth is the provided JSON data for UD089.
+
+                    Core Logic Rules:
+
+                    Data Hierarchy: Always prioritize the selected Program (e.g., UD089) and Year (1-3).
+
+                    Course Code Intelligence: You must automatically deduce the academic year from the course code. If a course code starts with '1' (e.g., MT1xx ,or ST1xx or FN1xx), it belongs to Year 1; '2' (MT2xx) to Year 2; '3' (MT3xx) to Year 3.
+
+                    Search/Filter Behavior: When a user selects a Year or Program:
+
+                    If the user selects a program/year where data exists, return the JSON routines filtered by the logic above.
+
+                    If the user selects a program/year that has no data (e.g., 'Year 4' or 'CS (CompSci)'), respond with a structured JSON flag: {"status": "coming_soon", "message": "Timetable for this category is coming soon."}.
+
+                    UI/UX Intelligence: When generating responses for the app UI, format the data into clear, actionable objects for the frontend (Title, Time, Location, Type, Color Tag).
+
+                    Source of Truth: Never invent data. If a requested course is not in the JSON, state that it is not available in the current official timetable.
+                """.trimIndent().replace("\n", "\\n").replace("\"", "\\\"")
+
+                val jsonBodyText = """
+                    {
+                      "contents": [
+                        {
+                          "parts": [
+                            {"text": "$promptText"}
+                          ]
+                        }
+                      ],
+                      "systemInstruction": {
+                        "parts": [
+                          {"text": "$systemInstruction"}
+                        ]
+                      },
+                      "generationConfig": {
+                        "temperature": 0.5
+                      }
+                    }
+                """.trimIndent()
+
+                val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
+                val requestBody = okhttp3.RequestBody.Companion.create(mediaType, jsonBodyText)
+
+                val request = okhttp3.Request.Builder()
+                    .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey")
+                    .post(requestBody)
+                    .build()
+
+                val client = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    client.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) {
+                            val errBody = response.body?.string() ?: ""
+                            android.util.Log.e("CampusViewModel", "Gemini HTTP error ${response.code}: $errBody")
+                            _aiSchedulerResponse.value = "{\"status\": \"error\", \"message\": \"Imeshindwa kuunganisha akili ya bandia ya ratiba.\"}"
+                        } else {
+                            val resBody = response.body?.string() ?: ""
+                            val parsedText = extractTextFromGeminiResponse(resBody)
+                            _aiSchedulerResponse.value = parsedText
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CampusViewModel", "Gemini query exception", e)
+                _aiSchedulerResponse.value = "{\"status\": \"coming_soon\", \"message\": \"Ratiba ya $program ($year) haijafikiwa katika hifadhi yetu ya sasa. Coming soon!\"}"
+            } finally {
+                _isAiSchedulerLoading.value = false
+            }
+        }
+    }
+
+    private fun extractTextFromGeminiResponse(rawJson: String): String {
+        try {
+            val partsStart = rawJson.indexOf("\"text\":")
+            if (partsStart != -1) {
+                val startQuote = rawJson.indexOf("\"", partsStart + 7)
+                if (startQuote != -1) {
+                    var endQuote = startQuote + 1
+                    var isEscaped = false
+                    val length = rawJson.length
+                    val sb = StringBuilder()
+                    while (endQuote < length) {
+                        val c = rawJson[endQuote]
+                        if (isEscaped) {
+                            sb.append(c)
+                            isEscaped = false
+                        } else if (c == '\\') {
+                            isEscaped = true
+                        } else if (c == '"') {
+                            break
+                        } else {
+                            sb.append(c)
+                        }
+                        endQuote++
+                    }
+                    return sb.toString().replace("\\n", "\n").replace("\\t", "\t").trim()
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("CampusViewModel", "Error parsing gemini response manually", e)
+        }
+        return rawJson
     }
 }

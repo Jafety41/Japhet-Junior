@@ -27,7 +27,9 @@ data class RoutineEntity(
     val dayOfWeek: String, // e.g., "Monday", "Tuesday", etc.
     val isOfficial: Boolean,
     val remindersEnabled: Boolean = false,
-    val classType: String // e.g., "Lecture", "Tutorial", "Lab"
+    val classType: String, // e.g., "Lecture", "Tutorial", "Lab"
+    val program: String = "UD089",
+    val year: Int = 3
 ) : Serializable
 
 @Entity(tableName = "marketplace_listings")
@@ -43,8 +45,19 @@ data class MarketplaceListingEntity(
     val status: String, // "available" or "sold"
     val condition: String, // "Like New", "Good", "Fair", "Heavily Used"
     val imageSeed: String, // seed for dicebear avatar or image helper
+    val imageUrls: String = "", // Delimited image URLs or image seeds, e.g. "url1||url2||url3"
     val createdAt: Long = System.currentTimeMillis()
-) : Serializable
+) : Serializable {
+    fun getImageList(): List<String> {
+        if (imageUrls.isBlank()) {
+            if (imageSeed.isNotBlank()) {
+                return listOf(imageSeed)
+            }
+            return emptyList()
+        }
+        return imageUrls.split("||").filter { it.isNotBlank() }
+    }
+}
 
 @Entity(tableName = "comments")
 data class CommentEntity(

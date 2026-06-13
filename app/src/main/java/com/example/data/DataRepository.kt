@@ -343,6 +343,16 @@ class DataRepository(private val dao: CampusDao) {
         }
     }
 
+    suspend fun updateRoutineLocation(routineId: Int, newLocation: String) {
+        dao.updateRoutineLocation(routineId, newLocation)
+        try {
+            val updateMap = mapOf("location" to newLocation)
+            FirebaseManager.firestore.collection("routines").document(routineId.toString()).update(updateMap)
+        } catch (e: Exception) {
+            Log.e(TAG, "Firestore updateRoutineLocation failed", e)
+        }
+    }
+
     suspend fun clearAllRoutines() {
         dao.clearAllRoutines()
         // Local only or optionally clear Firestore routines matching specific fields
@@ -590,7 +600,9 @@ class DataRepository(private val dao: CampusDao) {
                 location = "Lecture Hall B",
                 dayOfWeek = "Monday",
                 isOfficial = true,
-                classType = "Lecture"
+                classType = "Lecture",
+                program = "CS",
+                year = 2
             ),
             RoutineEntity(
                 courseName = "Database Systems & Design",
@@ -600,7 +612,9 @@ class DataRepository(private val dao: CampusDao) {
                 location = "CS Lab 3",
                 dayOfWeek = "Monday",
                 isOfficial = true,
-                classType = "Lab"
+                classType = "Lab",
+                program = "CS",
+                year = 2
             ),
             RoutineEntity(
                 courseName = "Discrete Structures & Logic",
@@ -610,7 +624,9 @@ class DataRepository(private val dao: CampusDao) {
                 location = "Room A-12",
                 dayOfWeek = "Tuesday",
                 isOfficial = true,
-                classType = "Lecture"
+                classType = "Lecture",
+                program = "CS",
+                year = 1
             ),
             RoutineEntity(
                 courseName = "Mobile App Design (Kotlin)",
@@ -620,7 +636,9 @@ class DataRepository(private val dao: CampusDao) {
                 location = "Smart Classroom C",
                 dayOfWeek = "Wednesday",
                 isOfficial = true,
-                classType = "Lecture"
+                classType = "Lecture",
+                program = "CS",
+                year = 3
             ),
             RoutineEntity(
                 courseName = "Software Engineering Principles",
@@ -630,7 +648,9 @@ class DataRepository(private val dao: CampusDao) {
                 location = "Auditorium Main",
                 dayOfWeek = "Thursday",
                 isOfficial = true,
-                classType = "Lecture"
+                classType = "Lecture",
+                program = "CS",
+                year = 3
             ),
             RoutineEntity(
                 courseName = "Artificial Intelligence Basics",
@@ -640,14 +660,712 @@ class DataRepository(private val dao: CampusDao) {
                 location = "Seminar Hall 2",
                 dayOfWeek = "Friday",
                 isOfficial = true,
-                classType = "Seminar"
+                classType = "Seminar",
+                program = "CS",
+                year = 4
             )
         )
 
         for (item in officialSchedules) {
             insertRoutine(item)
         }
+        seedMathematicsAndStatisticsRoutines()
         return officialSchedules
+    }
+
+    suspend fun seedMathematicsAndStatisticsRoutines() {
+        val existingRoutines = dao.getAllRoutines().first()
+        val mathRoutines = listOf(
+            // --- Year 3 (UD089) ---
+            RoutineEntity(
+                courseName = "Course ST324",
+                courseCode = "ST324",
+                lecturer = "Mathematics Dept",
+                times = "11:00 AM - 12:55 PM",
+                location = "YOMBO1",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Course MT346",
+                courseCode = "MT346",
+                lecturer = "Mathematics Dept",
+                times = "12:00 PM - 01:55 PM",
+                location = "COAF LR1",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Seminar ST318",
+                courseCode = "ST318",
+                lecturer = "Mathematics Dept",
+                times = "02:00 PM - 03:55 PM",
+                location = "B2-2",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Tutorial MT310",
+                courseCode = "MT310",
+                lecturer = "Mathematics Dept",
+                times = "01:00 PM - 01:55 PM",
+                location = "R217",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Tutorial",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Tutorial MT360",
+                courseCode = "MT360",
+                lecturer = "Mathematics Dept",
+                times = "08:00 AM - 08:55 AM",
+                location = "A4",
+                dayOfWeek = "Tuesday",
+                isOfficial = true,
+                classType = "Tutorial",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT310",
+                courseCode = "MT310",
+                lecturer = "Mathematics Dept",
+                times = "12:00 PM - 12:55 PM",
+                location = "A9",
+                dayOfWeek = "Tuesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Lecture ST321",
+                courseCode = "ST321",
+                lecturer = "Mathematics Dept",
+                times = "01:00 PM - 02:55 PM",
+                location = "SB",
+                dayOfWeek = "Tuesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Seminar ST312",
+                courseCode = "ST312",
+                lecturer = "Mathematics Dept",
+                times = "05:00 PM - 05:55 PM",
+                location = "YOMBO2",
+                dayOfWeek = "Tuesday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Tutorial MT360",
+                courseCode = "MT360",
+                lecturer = "Mathematics Dept",
+                times = "02:00 PM - 02:55 PM",
+                location = "ALRC",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Tutorial",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT310",
+                courseCode = "MT310",
+                lecturer = "Mathematics Dept",
+                times = "08:00 AM - 08:55 AM",
+                location = "GLY1",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Lecture ST312",
+                courseCode = "ST312",
+                lecturer = "Mathematics Dept",
+                times = "10:00 AM - 11:55 AM",
+                location = "YOMBO1",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT360",
+                courseCode = "MT360",
+                lecturer = "Mathematics Dept",
+                times = "01:00 PM - 02:55 PM",
+                location = "A21",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Seminar ST321",
+                courseCode = "ST321",
+                lecturer = "Mathematics Dept",
+                times = "03:00 PM - 03:55 PM",
+                location = "SA",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT346",
+                courseCode = "MT346",
+                lecturer = "Mathematics Dept",
+                times = "11:00 AM - 12:55 PM",
+                location = "SC109",
+                dayOfWeek = "Thursday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Tutorial MT360",
+                courseCode = "MT360",
+                lecturer = "Mathematics Dept",
+                times = "12:00 PM - 12:55 PM",
+                location = "COAF LR8",
+                dayOfWeek = "Friday",
+                isOfficial = true,
+                classType = "Tutorial",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT310",
+                courseCode = "MT310",
+                lecturer = "Mathematics Dept",
+                times = "12:00 PM - 12:55 PM",
+                location = "A206",
+                dayOfWeek = "Friday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Lecture ST318",
+                courseCode = "ST318",
+                lecturer = "Mathematics Dept",
+                times = "04:00 PM - 05:55 PM",
+                location = "YOMBO1",
+                dayOfWeek = "Friday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 3
+            ),
+            RoutineEntity(
+                courseName = "Seminar ST324",
+                courseCode = "ST324",
+                lecturer = "Mathematics Dept",
+                times = "12:00 PM - 12:55 PM",
+                location = "COAF LR8",
+                dayOfWeek = "Friday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 3
+            ),
+
+            // --- Year 2 (UD089) ---
+            RoutineEntity(
+                courseName = "Practical MT274",
+                courseCode = "MT274",
+                lecturer = "Mathematics Dept",
+                times = "12:00 PM - 12:55 PM",
+                location = "MT_CR1",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Practical",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT274",
+                courseCode = "MT274",
+                lecturer = "Mathematics Dept",
+                times = "01:00 PM - 01:55 PM",
+                location = "COAF LR10",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT120",
+                courseCode = "MT120",
+                lecturer = "Mathematics Dept",
+                times = "12:00 PM - 12:55 PM",
+                location = "SC315",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT274",
+                courseCode = "MT274",
+                lecturer = "Mathematics Dept",
+                times = "07:00 AM - 07:55 AM",
+                location = "ATB",
+                dayOfWeek = "Tuesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Tutorial MT274",
+                courseCode = "MT274",
+                lecturer = "Mathematics Dept",
+                times = "09:00 AM - 09:55 AM",
+                location = "MB",
+                dayOfWeek = "Tuesday",
+                isOfficial = true,
+                classType = "Tutorial",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Practical MT274",
+                courseCode = "MT274",
+                lecturer = "Mathematics Dept",
+                times = "12:00 PM - 12:55 PM",
+                location = "MT_CR1",
+                dayOfWeek = "Tuesday",
+                isOfficial = true,
+                classType = "Practical",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT120",
+                courseCode = "MT120",
+                lecturer = "Mathematics Dept",
+                times = "01:00 PM - 01:55 PM",
+                location = "A21",
+                dayOfWeek = "Tuesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture ST219",
+                courseCode = "ST219",
+                lecturer = "Mathematics Dept",
+                times = "03:00 PM - 03:55 PM",
+                location = "SC315",
+                dayOfWeek = "Tuesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture ST221",
+                courseCode = "ST221",
+                lecturer = "Mathematics Dept",
+                times = "08:00 AM - 08:55 AM",
+                location = "SB",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT274",
+                courseCode = "MT274",
+                lecturer = "Mathematics Dept",
+                times = "10:00 AM - 10:55 AM",
+                location = "COAF LR1",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT120",
+                courseCode = "MT120",
+                lecturer = "Mathematics Dept",
+                times = "11:00 AM - 11:55 AM",
+                location = "A21",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture ST219",
+                courseCode = "ST219",
+                lecturer = "Mathematics Dept",
+                times = "03:00 PM - 03:55 PM",
+                location = "YOMBO3",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT278",
+                courseCode = "MT278",
+                lecturer = "Mathematics Dept",
+                times = "04:00 PM - 04:55 PM",
+                location = "B2-2",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT274",
+                courseCode = "MT274",
+                lecturer = "Mathematics Dept",
+                times = "08:00 AM - 08:55 AM",
+                location = "ATB",
+                dayOfWeek = "Thursday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture ST211",
+                courseCode = "ST211",
+                lecturer = "Mathematics Dept",
+                times = "11:00 AM - 12:55 PM",
+                location = "NKRUMAH HALL",
+                dayOfWeek = "Thursday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT120",
+                courseCode = "MT120",
+                lecturer = "Mathematics Dept",
+                times = "12:00 PM - 12:55 PM",
+                location = "A21",
+                dayOfWeek = "Thursday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT278",
+                courseCode = "MT278",
+                lecturer = "Mathematics Dept",
+                times = "01:00 PM - 01:55 PM",
+                location = "ATB",
+                dayOfWeek = "Thursday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Seminar ST211",
+                courseCode = "ST211",
+                lecturer = "Mathematics Dept",
+                times = "02:00 PM - 02:55 PM",
+                location = "YOMBO2",
+                dayOfWeek = "Thursday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Seminar ST219",
+                courseCode = "ST219",
+                lecturer = "Mathematics Dept",
+                times = "04:00 PM - 04:55 PM",
+                location = "SA",
+                dayOfWeek = "Thursday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 2
+            ),
+            RoutineEntity(
+                courseName = "Seminar ST221",
+                courseCode = "ST221",
+                lecturer = "Mathematics Dept",
+                times = "09:00 AM - 09:55 AM",
+                location = "SA",
+                dayOfWeek = "Friday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 2
+            ),
+
+            // --- Year 1 (UD089) ---
+            RoutineEntity(
+                courseName = "Lecture MT147",
+                courseCode = "MT147",
+                lecturer = "Mathematics Dept",
+                times = "10:00 AM - 11:55 AM",
+                location = "MB",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT136",
+                courseCode = "MT136",
+                lecturer = "Mathematics Dept",
+                times = "10:00 AM - 10:55 AM",
+                location = "UDBS3/C520",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Seminar ST118",
+                courseCode = "ST118",
+                lecturer = "Mathematics Dept",
+                times = "11:00 AM - 11:55 AM",
+                location = "B2-2",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT120",
+                courseCode = "MT120",
+                lecturer = "Mathematics Dept",
+                times = "12:00 PM - 12:55 PM",
+                location = "SC315",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Seminar FN101",
+                courseCode = "FN101",
+                lecturer = "Mathematics Dept",
+                times = "01:00 PM - 01:55 PM",
+                location = "ALRA",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Seminar FN101",
+                courseCode = "FN101",
+                lecturer = "Mathematics Dept",
+                times = "04:00 PM - 04:55 PM",
+                location = "UDBS2/C124",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Seminar FN101",
+                courseCode = "FN101",
+                lecturer = "Mathematics Dept",
+                times = "07:00 PM - 07:55 PM",
+                location = "HEALTH LR 2",
+                dayOfWeek = "Monday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT120",
+                courseCode = "MT120",
+                lecturer = "Mathematics Dept",
+                times = "01:00 PM - 01:55 PM",
+                location = "A21",
+                dayOfWeek = "Tuesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Lecture ST118",
+                courseCode = "ST118",
+                lecturer = "Mathematics Dept",
+                times = "05:00 PM - 06:55 PM",
+                location = "THEATER1",
+                dayOfWeek = "Tuesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Seminar FN101",
+                courseCode = "FN101",
+                lecturer = "Mathematics Dept",
+                times = "07:00 PM - 07:55 PM",
+                location = "HEALTH LR 1",
+                dayOfWeek = "Tuesday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT180",
+                courseCode = "MT180",
+                lecturer = "Mathematics Dept",
+                times = "08:00 AM - 09:55 AM",
+                location = "MB",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Lecture MT120",
+                courseCode = "MT120",
+                lecturer = "Mathematics Dept",
+                times = "11:00 AM - 11:55 AM",
+                location = "A21",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Lecture FN101",
+                courseCode = "FN101",
+                lecturer = "Mathematics Dept",
+                times = "12:00 PM - 12:55 PM",
+                location = "COAF LR8",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Lecture ST114",
+                courseCode = "ST114",
+                lecturer = "Mathematics Dept",
+                times = "03:00 PM - 03:55 PM",
+                location = "COAF LR4",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Lecture ST114",
+                courseCode = "ST114",
+                lecturer = "Mathematics Dept",
+                times = "04:00 PM - 04:55 PM",
+                location = "COAF LR5",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Seminar FN101",
+                courseCode = "FN101",
+                lecturer = "Mathematics Dept",
+                times = "04:00 PM - 04:55 PM",
+                location = "YOMBO3",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Seminar",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Lecture ST114",
+                courseCode = "ST114",
+                lecturer = "Mathematics Dept",
+                times = "05:00 PM - 05:55 PM",
+                location = "COAF LR5",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 1
+            ),
+            RoutineEntity(
+                courseName = "Lecture ST114",
+                courseCode = "ST114",
+                lecturer = "Mathematics Dept",
+                times = "06:00 PM - 06:55 PM",
+                location = "COAF LR7",
+                dayOfWeek = "Wednesday",
+                isOfficial = true,
+                classType = "Lecture",
+                program = "UD089",
+                year = 1
+            )
+        )
+        for (item in mathRoutines) {
+            val alreadyExists = existingRoutines.any { 
+                it.courseCode == item.courseCode && 
+                it.dayOfWeek == item.dayOfWeek && 
+                it.times == item.times && 
+                it.program == item.program && 
+                it.year == item.year 
+            }
+            if (!alreadyExists) {
+                insertRoutine(item)
+            }
+        }
     }
 
     // --- Prepopulate Initial Seed Data ---
@@ -880,9 +1598,9 @@ class DataRepository(private val dao: CampusDao) {
             val roomId = dao.insertChatRoom(
                 ChatRoomEntity(
                     participantId = "japhet_moderator",
-                    participantName = "Japhet Mathias",
-                    participantPhoto = "https://api.dicebear.com/7.x/avataaars/svg?seed=Japhet&eyebrows=flatNatural&mouth=smile&top=shortCurly",
-                    lastMessage = "Hey! Drop me a message if you need help setting up your schedule or resource upload.",
+                    participantName = "Ask Me (Jay)",
+                    participantPhoto = "https://api.dicebear.com/7.x/bottts/svg?seed=Jay&size=100&eyes=bulging&mouth=smile",
+                    lastMessage = "Hey! Let me help you prep for your academic journey today.",
                     unreadCount = 1
                 )
             ).toInt()
@@ -891,14 +1609,16 @@ class DataRepository(private val dao: CampusDao) {
                 MessageEntity(
                     chatRoomId = roomId,
                     senderId = "japhet_moderator",
-                    text = "Hey! Welcome to Smart Campus. I'm Japhet, let me know if you need help styling schedules, uploading resources, or checking the campus marketplace listing.",
+                    text = "Hey student! Ready to crush your class schedule today? Let me help you coordinate reminders or find materials in Maktaba. Feel free to ask me anything!",
                 )
             )
         }
 
-        val routines = dao.getAllRoutines().first().isNotEmpty()
-        if (!routines) {
+        val routinesList = dao.getAllRoutines().first()
+        if (routinesList.isEmpty()) {
             simulateScraperSync()
+        } else if (routinesList.none { it.courseCode == "ST324" } || routinesList.none { it.courseCode == "MT147" }) {
+            seedMathematicsAndStatisticsRoutines()
         }
     }
 }

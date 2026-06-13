@@ -34,6 +34,9 @@ interface CampusDao {
     @Query("DELETE FROM routines WHERE id = :routineId")
     suspend fun deleteRoutine(routineId: Int)
 
+    @Query("UPDATE routines SET location = :newLocation WHERE id = :routineId")
+    suspend fun updateRoutineLocation(routineId: Int, newLocation: String)
+
     @Query("DELETE FROM routines")
     suspend fun clearAllRoutines()
 
@@ -121,7 +124,7 @@ interface CampusDao {
         StudyMaterialEntity::class,
         NotificationEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
